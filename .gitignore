@@ -1,0 +1,7 @@
+# direnv
+.direnv/
+
+# devshell
+result
+result-*
+.pre-commit-config.yaml
