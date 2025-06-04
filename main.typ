@@ -18,6 +18,7 @@
     author: [Ziping Sun],
     date: datetime.today(),
     // institution: [Beihang University],
+    logo: [],
   ),
 )
 
@@ -66,11 +67,15 @@ Control Plane: API Server, Controller Manager, Scheduler, #dimmed[etcd]
   #image("assets/kube-apiserver-overview.svg", width: 90%)
 ]
 
+#text(size: 0.8em)[
+  Request Flow: Middlewares (Authn, Audit, Flow Control, RBAC, Admission ...) #sym.arrow.r APIs #sym.arrow.r Storage
+]
+
 // 我将 API Server 分为 3 层：API、Middleware、Storage 三层。
 // 其中 API 是面向用户、集群其他组件的 RESTful 接口
 // Middleware 则提供了 Authentication、RBAC 等逻辑，像 RBAC、Admission 这类的中间件可以通过增删改对应的资源来配置
 // Storage 负责持久化、并发控制。这里我们还会着重关注一下 Watch-LIst
-
+// 一个请求会经历各种 middleware 的处理，Auth、RBAC、Admission 等等，而后到 API 层面进行处理，最后到达 Storage 层面进行查询、持久化
 
 == API Server: APIs
 
@@ -95,9 +100,10 @@ Control Plane: API Server, Controller Manager, Scheduler, #dimmed[etcd]
     - Change API Server behavior: *CRD, API Services* ...
     - Virtual resources: *TokenReview* ...
   ]
-  CRUD Consistency
+  CRUD + Watch Consistency
   #text(size: 0.8em)[
     - Per-resource *linearizability*
+    - No guarantee for watch
   ]
 ]
 // 首先 Kubernetes 的 API 按照 group/version 的方式组织。
@@ -119,4 +125,69 @@ Control Plane: API Server, Controller Manager, Scheduler, #dimmed[etcd]
 // - 一些资源能修改 API Server 的行为，像刚才讲到的扩展功能就是这类资源配置的，之后还会讲到 Admission, RBAC, API Priority and Fairness 等等的
 // - 还有一些资源是虚拟的，并不持久化，像 TokenReview 资源，它是用来验证 token 的合法性，返回用户信息等
 //
-// K8s 提供的 per-resource linearizability，保证了对于一个资源所有操作严格按照一个顺序原子化执行，之后在 storage 这块我会更细致将这一块
+// K8s 提供的 per-resource linearizability，保证了对于一个资源所有操作严格按照一个顺序原子化执行，之后在 storage 这块我会更细致将这一块。除了 CRUD 操作外，K8s 还提供了 Watch，Watch 一组资源时，资源间顺序不定，同一资源确保最后一个状态能看到，可能丢失中间事件。（不确定）
+
+
+== API Sever: APIs (deletion flow example)#footnote[Based on `k8s.io/apiserver/pkg/registry/generic/registry/store.go`]
+
+#slide[
+  #image("assets/kube-apiserver-deletion.svg")
+][
+  - Deletion might be asynchronous
+  - Cascade deletion is implemented by *GC Controller*
+  - Typical usage
+    - *graceful period* Pod
+    - *finalizers* PV/PVC
+]
+
+== API Server: Middlewares#footnote[Based on `k8s.io/apiserver/pkg/server/config.go`]
+
+#slide(composer: (2fr, 3fr))[
+  Authentication
+  #text(size: 0.8em)[
+    - Various methods: *X.509*, *Service Account*, *OIDC* ...
+  ]
+
+  Audit
+  #text(size: 0.8em)[
+    - Configured with static Audit Policy
+  ]
+
+  Priority and Fairness #dimmed[v1.29]
+  #text(size: 0.8em)[
+    - Controlled by *FrowSchema*
+  ]
+
+][
+  Authorization
+  #text(size: 0.8em)[
+    - Two methods:\
+      ~~*RBAC*\
+      ~~*node* #dimmed[(hardcoded for kubelet)]
+  ]
+
+  Admission
+  #text(size: 0.8em)[
+    - Two forms:\
+      ~~*In-tree Plugin* PodSecurity, NamespaceLifecycle ...\
+      ~~*Webhooks*
+  ]
+]
+
+
+== API Server: Storage
+
+#slide(composer: (2fr, 3fr))[
+  Optimistic concurrency control
+  #text(size: 0.8em)[
+    - *ResourceVersion*
+  ]
+
+
+
+][
+  Watch Cache
+  - consistency read
+]
+
+= Component: Controller Manager
