@@ -31,14 +31,14 @@
             devshell.packages = with pkgs; [
               typst
               typstyle
-
+              tinymist
             ];
             env = [
               {
                 name = "FONTCONFIG_FILE";
                 value = pkgs.makeFontsConf {
                   fontDirectories = with pkgs; [
-                    libertine
+                    comic-relief
                     source-han-sans
                   ];
                 };
