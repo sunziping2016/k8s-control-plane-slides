@@ -289,3 +289,70 @@ Control Plane: API Server, Controller Manager, Scheduler, #dimmed[etcd]
 
 
 = Component: Controller Manager
+
+== Controller Manager: Overview
+
+#slide(composer: (4fr, 1fr))[
+  #align(center)[
+    #image("assets/k8s-control-loop.png")
+  ]][
+  Key Patterns
+  #text(size: 0.8em)[
+    - Reconcile Loop
+    - Worker Queue
+    - Leader Election
+    - ListWatch Cache
+  ]
+]
+
+// reconcile loop -> eventual consistency (exponential backoff)
+// worker queue -> concurrency control
+// leader election -> HA
+// listWatch cache -> reduce API Server load
+
+
+== Controller Manager: Examples
+
+#slide[
+  NamespaceController
+  #text(size: 0.8em)[
+    - cascade delete namespaced resource
+  ]
+
+  NodeLifecycleController
+  #text(size: 0.8em)[
+    - taint-based eviction
+    - node NotReady detector
+  ]
+
+  Job/Deployment Controller ...
+  #text(size: 0.8em)[
+    - workload managerment
+  ]
+][
+  PodGCController
+  #text(size: 0.8em)[
+    - GC terminated pods if too many
+    - cascade pod deletion for nonexistent nodes
+  ]
+
+  EndpointSliceController
+  #text(size: 0.8em)[
+    - create EndpointSlice based on service
+    - EndpointSlice used by kube-proxy
+  ]
+
+  GC Controller
+  #text(size: 0.8em)[
+    - Cascade deletion
+    - Orphan, Foreground deletion
+  ]
+]
+
+// namespace controller: 删资源再删 finalizer。Namespace 的 finalizer 是在 spec 里在 APIs 的 store 层加上的
+
+==
+
+#slide[
+  #align(center)[ #text(size: 2em)[Thanks!]]
+]
