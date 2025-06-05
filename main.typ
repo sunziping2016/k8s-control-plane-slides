@@ -38,7 +38,7 @@ Control Plane: API Server, Controller Manager, Scheduler, #dimmed[etcd]
 // - 分为控制面数据面，数据面负责具体的容器操作
 // - 控制面核心组件
 // - Cloud Controller Manager: 与云服务相关
-// - API Sever: 所有请求的 hub
+// - API Server: 所有请求的 hub
 // - Controller Manager: 业务逻辑，内部打包了很多 controller
 // - Scheduler: 将 Pod 分配到 Node 上
 // - 数据面读取控制面 desire 状态，执行具体的操作。
@@ -128,7 +128,7 @@ Control Plane: API Server, Controller Manager, Scheduler, #dimmed[etcd]
 // K8s 提供的 per-resource linearizability，保证了对于一个资源所有操作严格按照一个顺序原子化执行，之后在 storage 这块我会更细致将这一块。除了 CRUD 操作外，K8s 还提供了 Watch，Watch 一组资源时，资源间顺序不定，同一资源确保最后一个状态能看到，可能丢失中间事件。（不确定）
 
 
-== API Sever: APIs (deletion flow example)#footnote[Based on `k8s.io/apiserver/pkg/registry/generic/registry/store.go`]
+== API Server: APIs (deletion flow example)#footnote[Based on `k8s.io/apiserver/pkg/registry/generic/registry/store.go`]
 
 #slide[
   #image("assets/kube-apiserver-deletion.svg")
