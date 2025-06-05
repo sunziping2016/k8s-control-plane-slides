@@ -95,7 +95,7 @@ Control Plane: API Server, Controller Manager, Scheduler, #dimmed[etcd]
       ~~pods *resize/ephemeralcontainers/eviction/binding*\
       ~~...\
       uncommon"control #sym.arrow.r data"flow\
-      ~~pods *exec/attach/port-forward*\
+      ~~pods *exec/attach/port-forward/logs*\
       ~~service/pod/node *proxy*\
     - Change API Server behavior: *CRD, API Services* ...
     - Virtual resources: *TokenReview* ...
@@ -133,12 +133,35 @@ Control Plane: API Server, Controller Manager, Scheduler, #dimmed[etcd]
 #slide[
   #image("assets/kube-apiserver-deletion.svg")
 ][
-  - Can be asynchronous
-  - Cascade deletion is implemented by *GC Controller*
-  - Typical usage
-    - *graceful period* Pod
-    - *finalizers* PV/PVC
+  #text(size: 0.8em)[
+    - Can be asynchronous
+    - Cascade deletion is implemented by *GC Controller*
+    - Typical usage
+      - *graceful period* Pod
+      - *finalizers* PV/PVC
+  ]
+
+  #text(size: 0.5em)[
+    ```yaml
+    apiVersion: v1
+    kind: Pod
+    metadata:
+      creationTimestamp: "2025-06-05T17:02:16Z"
+      deletionGracePeriodSeconds: 30
+      deletionTimestamp: "2025-06-05T17:04:30Z"
+      finalizers:
+      - szp.io/example
+      labels:
+        run: nodejs
+      name: nodejs
+      namespace: default
+      resourceVersion: "2514368"
+      uid: 5df0ed31-9bc2-4340-92bd-560bdbcb7330
+    ```
+  ]
 ]
+
+// TODO: 加个图
 
 // 可以看到 K8s 的删除过程是异步的，单纯看 kube-apiserver 的实现会感觉不明所以，实际上其中的一些
 // 逻辑会和外部的 kubelet 和 GC Controller 交互。
@@ -174,7 +197,7 @@ Control Plane: API Server, Controller Manager, Scheduler, #dimmed[etcd]
 
   #numbering("1.", 3) Priority and Fairness #dimmed[v1.29]
   #text(size: 0.8em)[
-    - Controlled by *FrowSchema*
+    - Controlled by *FlowSchema*
   ]
 
 ][
@@ -204,7 +227,7 @@ Control Plane: API Server, Controller Manager, Scheduler, #dimmed[etcd]
 //
 // Priority and Fairness 是 1.29 加入的功能。
 // 它的配置主要描述了 用户 + 操作(动词 + 资源) -> 优先级 的映射
-// 这个配置是一个 native resources，一般可以是 system:admin 最高优先级，而后控制面的一些组件例如 controller manager，等等组件优先级较高等等
+// 这个配置是一个 native resources，一般可以是集群管理员拥有最高的优先级，而后是 probe、scheduler/controller 的 leader election、endpoint controller、节点的 lease 等等。
 // 在 1.29 之前只有一个笼统的限制 inflight 请求总数的。
 //
 // Authorization 则是针对不同用户（组）能做什么
@@ -231,10 +254,7 @@ Control Plane: API Server, Controller Manager, Scheduler, #dimmed[etcd]
 
   Features
   #text(size: 0.8em)[
-    - MVCC: etcd provides\
-      ~~*Get* *List* *Count*\
-      ~~*OptimisticPut* *OptimisticDelete*\
-      ~~*Watch*\
+    - MVCC
       `resourceVersion` #sym.arrow.l.r `mod_revision`
     - Encryption at Rest
     - Watch Cache
@@ -247,7 +267,7 @@ Control Plane: API Server, Controller Manager, Scheduler, #dimmed[etcd]
     - Accelerate requests\
       ~~*GET (stale)* *LIST (stale)* #dimmed[#sym.lt v1.31]\
       ~~#highlight[*LIST* #dimmed[#sym.gt.eq.slant v1.31 consistent read]] \
-      ~~*Watch*
+      ~~*WATCH*
     - Note: filter applies after list etcd
   ]
 ]
@@ -344,12 +364,47 @@ Control Plane: API Server, Controller Manager, Scheduler, #dimmed[etcd]
 
   GC Controller
   #text(size: 0.8em)[
-    - Cascade deletion
+    - cascade deletion
     - Orphan, Foreground deletion
   ]
 ]
 
 // namespace controller: 删资源再删 finalizer。Namespace 的 finalizer 是在 spec 里在 APIs 的 store 层加上的
+
+= Nexus
+
+== Nexus: Architecture
+
+#slide(composer: (3fr, 1fr))[
+  #align(center)[
+    #image("assets/nexus-architecture.svg")
+  ]][
+  Nexus API Server
+  #text(size: 0.8em)[
+    - Handle requests
+  ]
+
+  Portal Reflector
+  #text(size: 0.8em)[
+    - Sync status
+    - Handle async operations
+  ]
+]
+
+== Nexus: Debugging the Pod Restart Issue
+
+
+Issue 1: Too many pods exceeding `terminated-pod-gc-threshold`\
+#sym.arrow.r PodGCController deletes pod\
+#sym.arrow.r VolcanoJobController recreates pod
+
+
+Issue 2: Node down\
+#sym.arrow.r NodeController adds unreachable & not-ready `NoExecute` taint to node\
+#sym.arrow.r TaintEvictionController #dimmed[(v1.29)] deletes pod\
+#sym.arrow.r VolcanoJobController recreates pod
+
+Final solution: Patching VolcanoJobController.
 
 ==
 
